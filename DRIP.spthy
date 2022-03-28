@@ -1,0 +1,16 @@
+theory DRIP
+
+begin
+
+builtins:
+
+rule :
+  let
+    
+  in
+    [  ]
+  --[  ]->
+    [  ]
+
+
+ end
