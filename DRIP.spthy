@@ -2,9 +2,9 @@ theory DRIP
 
 begin
 
-builtins:
+builtins: hashing, asymmetric-encryption
 
-rule :
+rule EdDSAgeneration:
   let
     
   in
@@ -12,5 +12,33 @@ rule :
   --[  ]->
     [  ]
 
+rule EdDSAsigning:
 
- end
+
+
+
+rule EdDSAverification:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+end
