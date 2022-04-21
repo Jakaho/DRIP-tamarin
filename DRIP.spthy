@@ -4,36 +4,67 @@ begin
 
 builtins: hashing, asymmetric-encryption, diffie-hellman, signing
 
-functions: kdf/1
+functions: kdf/1, 
 
-// Anyone can register a public key at any time together with its ID
-// But: only once per ID
-rule Register_pk:
-  [ Fr(~ltkX) ]
-  --[ OnlyOnceV($X) ]->
-  [
-    !Ltk($X, ~ltkX)
-    , !Pk($X, pk(~ltkX))
-    , Out(pk(~ltkX)) 
-  ] 
+///////////////////////////////////
+// Public Key Infrastructure (PKI)
+////////////////////////////////////
+rule create_identities:
+  let pubkey = 'g'^privkey
+  in 
+  [Fr(~privkey)] --> [!Identity($A, privkey, pubkey), Out(pubkey)]
 
 
 
+///////////////////////////////////////////////////////////////////
+//HIP Base Exchange
+///////////////////////////////////////////////////////////////////
+
+rule initiator_1:
+[!Identity($Initiator, ~initprivkey, initpubkey), !Identity($Responder, ~respprivkey, resppubkey)]
+--> 
+[Out(<'trigger_packet', $Initiator, $Responder, h(initpubkey)>)]
+
+
+rule responder_1:
+[!Identity($Responder, ~respprivkey, resppubkey), In(<'trigger_packet', Initiator, $Responder, h(initpubkey)>)] 
+--> [Out(<'responder_hello', $Responder, Initator, resppubkey, sign>)] // + puzzle?
+
+rule initiator_2:
+  let sesskey = resppubkey^~initprivkey
+  in
+  [!Identity($Initiator, ~initprivkey, initpubkey), In(<'responder_hello', $Responder, Initator, resppubkey, sign>)]  //verify sign?
+  --> 
+  [Session($Initiator, $Responder, sesskey), Out(<'initiator_hello', $Initator, $Responder, initpubkey, sign>)] // + solution
+
+rule responder_2:
+  let sesskey = initpubkey^~respprivkey
+  in
+  [!Identity($Responder, ~respprivkey, resppubkey), In(<'initiator_hello', $Initator, $Responder, initpubkey, sign>)] //verify sign?
+  -->
+  [Session($Responder, $Initiator, sesskey), Out(sign)]
 
 
 
+/////////////////////////////////////////
+// Register entity to registry
+/////////////////////////////////////////
+
+rule operator_send_cert:
+    [!Identity($Op, privkeyOp, pubkeyOp), !Identity($Reg, privkeyReg, pubkeyReg)]
+      -->
+    [Out(<'Operator_certificate', $Op, $Reg, sign()>)] // send certificate?
 
 
 
+////////////////////////////////////////
+// Attacker
+//////////////////////////////////////////
 
-
-
-
-
-
-
-
-
+rule Reveal_privkey:
+    [ !Privkey(A, privkey) ]
+  --[ PrivkeyReveal(A) ]->
+    [ Out(privkey)]
 
 
 end
