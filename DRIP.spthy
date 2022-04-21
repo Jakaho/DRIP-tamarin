@@ -2,25 +2,20 @@ theory DRIP
 
 begin
 
-builtins: hashing, asymmetric-encryption
+builtins: hashing, asymmetric-encryption, diffie-hellman, signing
 
-rule EdDSAgeneration:
-  let
-    
-  in
-    [  ]
-  --[  ]->
-    [  ]
+functions: kdf/1
 
-rule EdDSAsigning:
-
-
-
-
-rule EdDSAverification:
-
-
-
+// Anyone can register a public key at any time together with its ID
+// But: only once per ID
+rule Register_pk:
+  [ Fr(~ltkX) ]
+  --[ OnlyOnceV($X) ]->
+  [
+    !Ltk($X, ~ltkX)
+    , !Pk($X, pk(~ltkX))
+    , Out(pk(~ltkX)) 
+  ] 
 
 
 
