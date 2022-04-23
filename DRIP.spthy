@@ -34,14 +34,14 @@ rule initiator_2:
   let sesskey = resppubkey^~initprivkey
   in
   [!Identity($Initiator, ~initprivkey, initpubkey), In(<'responder_hello', $Responder, Initator, resppubkey, sign>)]  //verify sign?
-  --> 
+  --[InitiatorCreateSession($Initiator, Responder, sesskey)]-> 
   [Session($Initiator, $Responder, sesskey), Out(<'initiator_hello', $Initator, $Responder, initpubkey, sign>)] // + solution
 
 rule responder_2:
   let sesskey = initpubkey^~respprivkey
   in
   [!Identity($Responder, ~respprivkey, resppubkey), In(<'initiator_hello', $Initator, $Responder, initpubkey, sign>)] //verify sign?
-  -->
+  --[ResponderCreateSession($Responder, Initiator, sesskey)]->
   [Session($Responder, $Initiator, sesskey), Out(sign)]
 
 
@@ -66,5 +66,18 @@ rule Reveal_privkey:
   --[ PrivkeyReveal(A) ]->
     [ Out(privkey)]
 
+
+
+lemma MITM:
+"
+All Initator Responder sesskey1 sesskey2 #i #j.
+  (
+    InitiatorCreateSession(Initiator, Responder, sesskey1) @ #i &
+    ResponderCreateSession(Responder, Initator, sesskey2)  @ #j &
+    #j < #i & 
+    not (Initiator = Responder) 
+  )
+    ==> not(Ex #k1 #k2 . K(sesskey1) @ #k1 & K(sesskey2) @ #k2)
+"
 
 end
