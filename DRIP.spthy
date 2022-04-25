@@ -4,75 +4,104 @@ builtins: hashing, asymmetric-encryption, diffie-hellman, signing
 
 functions: kdf/1
 
-///////////////////////////////////
+//////////////////////////////////////////
 // Public Key Infrastructure (PKI)
-////////////////////////////////////
+//////////////////////////////////////////
 rule create_identities:
   let 
     pubkey = 'g'^~privkey
   in 
-  [Fr(~privkey)] --> [!Identity($A, privkey, pubkey), Out(pubkey)]
+  [Fr(~privkey)] --> [!Identity($A, ~privkey, pubkey), Out(pubkey)]
 
-///////////////////////////////////////////////////////////////////
-//HIP Base Exchange
-///////////////////////////////////////////////////////////////////
+
+/*rule CA_init:
+    [ Fr(~ltk) ]
+    -->
+    [
+        !LtkCA(~ltk)
+        , !PkCA(pk(~ltk))
+        , Out(pk(~ltk)) 
+    ] */
+
+//////////////////////////////////////////
+// HIP Base Exchange
+//////////////////////////////////////////
 
 rule initiator_1:
 [!Identity($Initiator, ~initprivkey, initpubkey), !Identity($Responder, ~respprivkey, resppubkey)]
 --> 
 [Out(<'trigger_packet', $Initiator, $Responder, h(initpubkey)>)]
 
-
 rule responder_1:
+     let 
+        signResp = sign(<'responder_hello', $Responder, Initiator, resppubkey>, ~respprivkey)
+     in
 [!Identity($Responder, ~respprivkey, resppubkey), In(<'trigger_packet', Initiator, $Responder, h(initpubkey)>)] 
---> [Out(<'responder_hello', $Responder, Initator, resppubkey, sign>)] // + puzzle?
+--> [Out(signResp)] // + puzzle?
 
 rule initiator_2:
   let sesskey = resppubkey^~initprivkey
+      signInit = sign(<'initiator_hello', $Initiator, Responder, initpubkey>, initprivkey)
   in
-  [!Identity($Initiator, ~initprivkey, initpubkey), In(<'responder_hello', $Responder, Initator, resppubkey, sign>)]  //verify sign?
-  --[InitiatorCreateSession($Initiator, Responder, sesskey)]-> 
-  [Session($Initiator, $Responder, sesskey), Out(<'initiator_hello', $Initator, $Responder, initpubkey, sign>)] // + solution
+  [!Identity($Initiator, ~initprivkey, initpubkey), In(signResp)]  
+  --[Eq(verify(signResp, <'responder_hello', $Responder, Initiator, resppubkey>, resppubkey), true), InitiatorCreateSession($Initiator, Responder, sesskey)]-> 
+  [Session($Initiator, $Responder, sesskey), Out(signInit)] // + solution
 
 rule responder_2:
   let 
+    signStart = sign(<'responder_hello', $Responder, Initiator, resppubkey>, ~respprivkey)
     sesskey = initpubkey^~respprivkey
   in
-  [!Identity($Responder, ~respprivkey, resppubkey), In(<'initiator_hello', $Initator, $Responder, initpubkey, sign>)] //verify sign?
-  --[ResponderCreateSession($Responder, Initiator, sesskey)]->
-  [Session($Responder, $Initiator, sesskey), Out(sign)]
+
+  [!Identity($Responder, ~respprivkey, resppubkey), In(signInit)] 
+
+  --[
+    Eq(verify(signInit, <'initiator_hello', $Initiator, Responder, initpubkey>, initpubkey), true)
+    , ResponderCreateSession($Responder, Initiator, sesskey)
+  ]->
+
+  [Session($Responder, $Initiator, sesskey), Out(signStart)]
 
 
 
-/////////////////////////////////////////
+//////////////////////////////////////////
 // Register entity to registry
-/////////////////////////////////////////
+//////////////////////////////////////////
 
+/*
 rule operator_send_cert:
     [!Identity($Op, privkeyOp, pubkeyOp), !Identity($Reg, privkeyReg, pubkeyReg)]
       -->
     [Out(<'Operator_certificate', $Op, $Reg, sign>)] // send certificate?
 
+*/
 
-////////////////////////////////////////
+
+//////////////////////////////////////////
 // Attacker
 //////////////////////////////////////////
+
 
 rule Reveal_privkey:
     [ !Privkey(A, privkey) ]
   --[ PrivkeyReveal(A) ]->
     [ Out(privkey)]
 
+//////////////////////////////////////////
+restriction Equality:
+    "All x y #i. Eq(x,y) @i ==> x = y"
 
+//////////////////////////////////////////
 
 lemma MITM:
 "
-All Initator Responder sesskey1 sesskey2 #i #j.
+All Initiator Responder sesskey1 sesskey2 #i #j.
   (
     InitiatorCreateSession(Initiator, Responder, sesskey1) @ #i &
-    ResponderCreateSession(Responder, Initator, sesskey2)  @ #j &
+    ResponderCreateSession(Responder, Initiator, sesskey2)  @ #j &
     #j < #i & 
     not (Initiator = Responder) 
+    & not (Ex C #r . PrivkeyReveal(C) @ #r)
   )
     ==> not(Ex #k1 #k2 . K(sesskey1) @ #k1 & K(sesskey2) @ #k2)
 "
