@@ -96,7 +96,7 @@ In(pubkeyDrone)
 ]->
 [DecryptHHIT($Observer, privkeyObs, pubkeyObs, adec(hhit, pubkeyDrone))]
 
-rule send_pubkey:
+rule registry_send_pubkey:
 [!Identity($Registry, privkeyDrone, pubkeyDrone), In(hhit)]
 --[
 RegistrySendPubkey($Registry, privkeyDrone, pubkeyDrone, hhit)
