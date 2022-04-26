@@ -29,7 +29,7 @@ rule create_identities:
 
 rule initiator_1:
 [!Identity($Initiator, ~initprivkey, initpubkey), !Identity($Responder, ~respprivkey, resppubkey)]
---> 
+--[CreateI($Initiator, ~initprivkey, initpubkey)]-> 
 [Out(<'trigger_packet', $Initiator, $Responder, h(initpubkey)>)]
 
 rule responder_1:
@@ -37,7 +37,7 @@ rule responder_1:
         signResp = sign(<'responder_hello', $Responder, Initiator, resppubkey>, ~respprivkey)
      in
 [!Identity($Responder, ~respprivkey, resppubkey), In(<'trigger_packet', Initiator, $Responder, h(initpubkey)>)] 
---> [Out(signResp)] // + puzzle?
+--[CreateR($Responder, ~respprivkey, resppubkey)]-> [Out(signResp)] // + puzzle?
 
 rule initiator_2:
   let sesskey = resppubkey^~initprivkey
@@ -85,7 +85,7 @@ let hit = h(~id)
 hhit = aenc(hit, privkeyDrone)
 in
 [Fr(~id), !Identity($Drone, privkeyDrone, pubkeyDrone), !Identity($Observer, privkeyObs, pubkeyObs)]
--->
+--[CreateUA($Drone, ~id)]->
 [Out(<'broadcast', hhit>)]
 
 rule observer_receive_HHIT:
@@ -145,5 +145,16 @@ All Initiator Responder sesskey1 sesskey2 #i #j.
   )
     ==> not(Ex #k1 #k2 . K(sesskey1) @ #k1 & K(sesskey2) @ #k2)
 "
+
+//verify that the protocol fully runs through
+
+lemma executable:
+  
+  exists-trace
+"Ex I R sesskey1 sesskey2 D id R pkD pD hhit i j k l.
+InitiatorCreateSession(I, R, sesskey1) @ #i &
+ResponderCreateSession(R, I, sesskey2) @ #j & 
+CreateUA(D, id) @ #k & 
+RegistrySendPubkey(R, pD, pkD, hhit) @ #l"
 
 end
