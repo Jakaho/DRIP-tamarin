@@ -76,6 +76,46 @@ rule operator_send_cert:
 
 */
 
+////////////////////////////////////////////////////////////////
+//DRIP broadcast
+///////////////////////////////////////////////////////////////
+
+rule UA_broadcast_DET:
+let hit = h(~id)
+hhit = aenc(hit, privkeyDrone)
+in
+[Fr(~id), !Identity($Drone, privkeyDrone, pubkeyDrone), !Identity($Observer, privkeyObs, pubkeyObs)]
+-->
+[Out(<'broadcast', hhit>)]
+
+rule observer_receive_HHIT:
+[!Identity($Observer, privkeyObs, pubkeyObs), In(<'broadcast', hhit>)]
+--[
+Out(hhit),
+In(pubkeyDrone) 
+]->
+[DecryptHHIT($Observer, privkeyObs, pubkeyObs, adec(hhit, pubkeyDrone))]
+
+rule send_pubkey:
+[!Identity($Registry, privkeyDrone, pubkeyDrone), In(hhit)]
+--[
+RegistrySendPubkey($Registry, privkeyDrone, pubkeyDrone, hhit)
+]->
+[Out(pubkeyDrone)]
+
+
+
+lemma DET_verify:
+ "
+ All $Registry privkeyDrone pubkeyDrone hhit #i.
+ (
+ 	RegistrySendPubkey($Registry, privkeyDrone, pubkeyDrone, hhit) @ #i &
+ 	not (Ex C #r . PrivkeyReveal(C) @ #r)
+
+
+ 	)==> not(Ex #j . K(privkeyDrone) @ #j)
+ "
+
 
 //////////////////////////////////////////
 // Attacker
