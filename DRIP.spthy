@@ -84,13 +84,15 @@ rule UA_broadcast_DET:
 let hit = h(~id)
 hhit = aenc(hit, privkeyDrone)
 in
-[Fr(~id), !Identity($Drone, privkeyDrone, pubkeyDrone), !Identity($Observer, privkeyObs, pubkeyObs)]
+[Fr(~id), !Identity($Drone, privkeyDrone, pubkeyDrone),
+!Identity($Observer, privkeyObs, pubkeyObs)]
 --[CreateUA($Drone, ~id)]->
 [Out(<'broadcast', hhit>)]
 
 rule observer_receive_HHIT:
 [!Identity($Observer, privkeyObs, pubkeyObs), In(<'broadcast', hhit>)]
 --[
+ObserverLookup($Observer, hhit),
 Out(hhit),
 In(pubkeyDrone) 
 ]->
@@ -103,9 +105,26 @@ RegistrySendPubkey($Registry, privkeyDrone, pubkeyDrone, hhit)
 ]->
 [Out(pubkeyDrone)]
 
+rule register_drone:
+let
+encpriv = aenc(privkeyDrone, sesskey2)
+in
+[!Identity($Registry, privkeyReg, pubkeyReg),
+!Identity($Drone, privkeyDrone, pubkeyDrone),
+Session($Registry, $Drone, sesskey1), Session($Drone, $Registry, sesskey2)]
+--[
+RegisterDrone($Registry, $Drone, privkeyDrone, pubkeyDrone)
+]->
+[Out(<encpriv, pubkeyDrone>)]
 
 
-lemma DET_verify:
+
+
+
+/*
+The drone's private key can not be known by an adversary
+*/
+/*lemma DET_verify:
  "
  All $Registry privkeyDrone pubkeyDrone hhit #i.
  (
@@ -114,6 +133,23 @@ lemma DET_verify:
 
 
  	)==> not(Ex #j . K(privkeyDrone) @ #j)
+ "
+ */
+
+ lemma DET_verify:
+ "
+ All Registry sesskey1 Drone privkeyDrone pubkeyDrone id hhit sesskey2
+ Observer #i #j #k #l #m #n.
+ (
+ 	InitiatorCreateSession(Drone, Registry, sesskey2) @ #i &
+ 	ResponderCreateSession(Registry, Drone, sesskey1) @ #j &
+ 	CreateUA(Drone, id) @ #k &
+ 	RegisterDrone(Registry, Drone, privkeyDrone, pubkeyDrone) @ #l &
+ 	ObserverLookup(Observer, hhit) @ #m &
+ 	RegistrySendPubkey(Registry, privkeyDrone, pubkeyDrone, hhit) @ #n &
+ 	not (Ex C #r . PrivkeyReveal(C) @ #r)
+
+ 	)==> not(Ex #o . K(privkeyDrone) @ #o)
  "
 
 
@@ -151,10 +187,16 @@ All Initiator Responder sesskey1 sesskey2 #i #j.
 lemma executable:
   
   exists-trace
-"Ex I R sesskey1 sesskey2 D id Re pkD pD hhit #i #j #k #l.
+"Ex I R sesskey1 sesskey2 D id Re pkD pD hhit #i #j #k #l #m.
 InitiatorCreateSession(I, R, sesskey1) @ #i &
 ResponderCreateSession(R, I, sesskey2) @ #j & 
 CreateUA(D, id) @ #k & 
-RegistrySendPubkey(Re, pD, pkD, hhit) @ #l"
+RegisterDrone(R, D, pD, pkD) @ #l &
+RegistrySendPubkey(Re, pD, pkD, hhit) @ #m"
 
 end
+
+
+
+
+
