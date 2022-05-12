@@ -11,7 +11,9 @@ rule create_identities:
   let 
     pubkey = 'g'^~privkey
   in 
-  [Fr(~privkey)] --> [!Identity($A, ~privkey, pubkey), Out(pubkey)]
+  [Fr(~privkey)]
+  --[OnlyOnce($A)
+  ]-> [!Identity($A, ~privkey, pubkey), Out(pubkey)]
 
 
 /*rule CA_init:
@@ -44,7 +46,8 @@ rule initiator_2:
       signInit = sign(<'initiator_hello', $Initiator, Responder, initpubkey>, initprivkey)
   in
   [!Identity($Initiator, ~initprivkey, initpubkey), In(signResp)]  
-  --[Eq(verify(signResp, <'responder_hello', $Responder, Initiator, resppubkey>, resppubkey), true), InitiatorCreateSession($Initiator, Responder, sesskey)]-> 
+  --[Eq(verify(signResp, <'responder_hello', $Responder, Initiator, resppubkey>, resppubkey), true), InitiatorCreateSession($Initiator, Responder, sesskey),
+  Honest(Responder), Honest(Initiator)]-> 
   [Session($Initiator, $Responder, sesskey), Out(signInit)] // + solution
 
 rule responder_2:
@@ -57,7 +60,7 @@ rule responder_2:
 
   --[
     Eq(verify(signInit, <'initiator_hello', $Initiator, Responder, initpubkey>, initpubkey), true)
-    , ResponderCreateSession($Responder, Initiator, sesskey)
+    , ResponderCreateSession($Responder, Initiator, sesskey), Honest(Responder), Honest(Initiator)
   ]->
 
   [Session($Responder, $Initiator, sesskey), Out(signStart)]
@@ -136,7 +139,7 @@ The drone's private key can not be known by an adversary
  "
  */
 
- lemma DET_verify:
+ lemma DET_authenticity:
  "
  All Registry sesskey1 Drone privkeyDrone pubkeyDrone id hhit sesskey2
  Observer #i #j #k #l #m #n.
@@ -167,9 +170,14 @@ rule Reveal_privkey:
 restriction Equality:
     "All x y #i. Eq(x,y) @i ==> x = y"
 
+restriction OnlyOnce:
+"
+    All #i #j x. OnlyOnce(x) @ #i & OnlyOnce(x) @ #j ==> #i = #j
+"
+
 //////////////////////////////////////////
 
-lemma MITM:
+lemma session_key_secrecy:
 "
 All Initiator Responder sesskey1 sesskey2 #i #j.
   (
@@ -180,6 +188,30 @@ All Initiator Responder sesskey1 sesskey2 #i #j.
     & not (Ex C #r . PrivkeyReveal(C) @ #r)
   )
     ==> not(Ex #k1 #k2 . K(sesskey1) @ #k1 & K(sesskey2) @ #k2)
+"
+
+lemma injective_agreement:
+"
+All Initiator sesskey1 Responder #i.
+InitiatorCreateSession(Initiator, Responder, sesskey1) @ #i ==>
+	(Ex sesskey2 #j. ResponderCreateSession(Responder, Initiator, sesskey2) @ #j
+	& #j < #i
+	& not (Ex Initiator2 Responder2 #i2.
+		InitiatorCreateSession(Initiator2, Responder2, sesskey1) @ #i2 & not(#i2=#i))
+	& not(Ex C #r. PrivkeyReveal(C) @ #r & Honest(C) @ #i & #r<#i)
+	)
+	| (Ex C . Honest(C) @ #i)
+"
+
+
+lemma weak_agreement:
+"
+All Initiator sesskey1 Responder #i.
+InitiatorCreateSession(Initiator, Responder, sesskey1) @ #i ==>
+	(Ex sesskey2 #j. ResponderCreateSession(Responder, Initiator, sesskey2) @ #j
+		& #j<#i
+		)
+	| (Ex C #r . PrivkeyReveal(C) @ #r & Honest(C) @ #i & #r<#r)
 "
 
 //verify that the protocol fully runs through
