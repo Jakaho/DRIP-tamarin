@@ -214,6 +214,13 @@ InitiatorCreateSession(Initiator, Responder, sesskey1) @ #i ==>
 	| (Ex C #r . PrivkeyReveal(C) @ #r & Honest(C) @ #i & #r<#r)
 "
 
+
+
+lemma aliveness:
+"All Initiator Responder sesskey1  #i. InitiatorCreateSession(Initiator, Responder, sesskey1)@i
+==> (Ex sesskey2 #j. ResponderCreateSession(Responder, Initiator, sesskey2) @ j)
+| (Ex C #r. PrivkeyReveal(C) @ r & Honest(C) @ i)"
+
 //verify that the protocol fully runs through
 
 lemma executable:
